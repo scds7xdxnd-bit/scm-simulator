@@ -1,10 +1,11 @@
 /* ── Reset ──────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* ── Base (desktop: no page scroll) ───────────────────────────────────── */
+/* ── Base ──────────────────────────────────────────────────────────────── */
 html, body {
   height: 100%;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   font-family: 'Inter', system-ui, sans-serif;
   background: #fafafa;
   color: #111111;
@@ -14,9 +15,9 @@ html, body {
 /* ── App grid ─────────────────────────────────────────────────────────── */
 .app {
   display: grid;
-  grid-template-rows: auto 1fr 210px;
+  grid-template-rows: auto 1fr auto;
   gap: 6px;
-  height: 100vh;
+  min-height: 100vh;
   padding: 6px;
 }
 
@@ -374,8 +375,8 @@ html, body {
   overflow: hidden;
 }
 
-/* ── Agent visibility toggles ────────────────────────────────────────────*/
-.agent-toggles {
+/* ── Chart controls bar (shared legend + panic toggle) ───────────────────*/
+.chart-controls {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -459,9 +460,8 @@ html, body {
 canvas { display: block; }
 
 .chart-tooltip {
-  position: absolute;
-  top: 8px;
-  z-index: 20;
+  position: fixed;
+  z-index: 200;
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 7px;
@@ -483,7 +483,7 @@ canvas { display: block; }
   display: flex;
   gap: 6px;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 .bottom-card {
   flex: 1;
@@ -492,6 +492,7 @@ canvas { display: block; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  max-height: 250px;
 }
 
 /* Event list */
@@ -550,6 +551,8 @@ canvas { display: block; }
 .starts-card {
   flex: 0 0 auto;
   width: 268px;
+  overflow: visible;
+  max-height: none;
 }
 .starts-note {
   font-weight: 400;
@@ -561,8 +564,6 @@ canvas { display: block; }
   display: flex;
   flex-direction: column;
   gap: 3px;
-  flex: 1;
-  min-height: 0;
 }
 .starts-row {
   display: grid;
@@ -622,6 +623,78 @@ canvas { display: block; }
   flex-shrink: 0;
   border-radius: 6px;
 }
+
+
+/* ── Chart controls — panic label + separator ────────────────────────────*/
+.chart-ctrl-panic-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 13px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #374151;
+  background: #f9fafb;
+  border: 1.5px solid #e5e7eb;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.chart-ctrl-panic-label:hover { border-color: #9ca3af; }
+.chart-ctrl-panic-label input[type="checkbox"] {
+  accent-color: #7C3AED;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.chart-ctrl-sep {
+  width: 1px;
+  height: 22px;
+  background: #e5e7eb;
+  flex-shrink: 0;
+  margin: 0 3px;
+}
+
+
+/* ── Starting Conditions — customer demand row ───────────────────────────*/
+.starts-demand-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
+.starts-demand-lbl {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #374151;
+  flex: 1;
+  white-space: nowrap;
+}
+.starts-demand-row .starts-input {
+  width: 60px;
+  flex-shrink: 0;
+}
+
+
+
+
+/* ── Tooltip hint line (inv | blg | ord) ─────────────────────────────────*/
+.tooltip-hint {
+  color: #9ca3af;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 1px;
+}
+.chart-tooltip { min-width: 160px; }
 
 
 /* ── Utility ─────────────────────────────────────────────────────────────*/

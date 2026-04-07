@@ -45,6 +45,11 @@
     outgoingOrder: BASE_DEMAND,
   }));
 
+  // ── Global starting condition: customer demand baseline ───────────────────────
+  const startingGlobal = {
+    customerDemand: BASE_DEMAND,
+  };
+
   const agentState = {
     agents: [],
   };
@@ -65,6 +70,11 @@
 
   const agentVisibility = [true, true, true, true];
 
+  // ── Panic overlay UI state ────────────────────────────────────────────────────
+  const panicOverlayState = {
+    globalEnabled: true,
+  };
+
   // ── getInitialAgentState ──────────────────────────────────────────────────────
   function getInitialAgentState(i) {
     const sc  = startingConditions[i];
@@ -82,6 +92,7 @@
       historyInventory : [],
       historyOrders    : [],
       historyBacklog   : [],
+      historyPanic     : [],
       isPanicking      : false,
       _panicFired      : false,
       _backlogMilestone: 0,
@@ -136,7 +147,7 @@
       speedVal.textContent = v + ' tps';
     });
 
-    // Parameter sliders (shock_tick removed)
+    // Parameter sliders
     const sliderDefs = [
       { id: 'shock_magnitude', key: 'shockMagnitude',  fmt: v => v.toFixed(1) + '×'   },
       { id: 'panic_threshold', key: 'panicThreshold',  fmt: v => String(Math.round(v)) },
@@ -172,16 +183,26 @@
     // Chaos button — always enabled; queues a hit for next tick
     document.getElementById('btn_chaos_hit').addEventListener('click', queueChaosHit);
 
-    // Agent visibility toggle chips
+    // Shared agent legend — controls both charts and panic shading simultaneously
     AGENT_NAMES.forEach((_, i) => {
       const chip = document.getElementById('toggle_agent_' + i);
       if (!chip) return;
       chip.addEventListener('click', () => {
         agentVisibility[i] = !agentVisibility[i];
         chip.dataset.active = String(agentVisibility[i]);
+        chip.setAttribute('aria-pressed', String(agentVisibility[i]));
         renderCharts();
       });
     });
+
+    // Panic overlay — global checkbox
+    const globalChk = document.getElementById('panic_overlay_global');
+    if (globalChk) {
+      globalChk.addEventListener('change', () => {
+        panicOverlayState.globalEnabled = globalChk.checked;
+        renderCharts();
+      });
+    }
 
     // Chart hover — shared hover state
     _attachChartHover('chart_inventory', 'inventory');
@@ -219,6 +240,15 @@
         });
       });
     });
+    const cdInput = document.getElementById('start_customer_demand');
+    if (cdInput) {
+      cdInput.addEventListener('change', () => {
+        let v = parseInt(cdInput.value, 10);
+        if (isNaN(v) || v < 0) v = 0;
+        if (v > 500)           v = 500;
+        cdInput.value = v;
+      });
+    }
     document.getElementById('btn_apply_starts').addEventListener('click', applyStartingConditions);
   }
 
@@ -235,6 +265,11 @@
         outgoingOrder: clamp(ord, BASE_DEMAND),
       };
     });
+    const cdInput = document.getElementById('start_customer_demand');
+    if (cdInput) {
+      const cd = parseInt(cdInput.value, 10);
+      startingGlobal.customerDemand = Math.max(0, Math.min(500, isNaN(cd) ? BASE_DEMAND : cd));
+    }
     recordEvent('info', 'Starting conditions saved — press Reset to apply');
   }
 
@@ -280,7 +315,7 @@
     canvas.addEventListener('mousemove', e => {
       if (chartKey === 'inventory') chartState.hoverInInv = true;
       else                          chartState.hoverInOrd = true;
-      handleChartHover(e, canvas);
+      handleChartHover(e, canvas, chartKey);
     });
 
     canvas.addEventListener('mouseleave', () => {
@@ -363,8 +398,13 @@
     agentVisibility.fill(true);
     AGENT_NAMES.forEach((_, i) => {
       const chip = document.getElementById('toggle_agent_' + i);
-      if (chip) chip.dataset.active = 'true';
+      if (chip) { chip.dataset.active = 'true'; chip.setAttribute('aria-pressed', 'true'); }
     });
+
+    // Reset panic overlay to default enabled state
+    panicOverlayState.globalEnabled = true;
+    const globalChk = document.getElementById('panic_overlay_global');
+    if (globalChk) globalChk.checked = true;
 
     chartState.hoveredTick        = null;
     chartState.hoverInInv         = false;
@@ -411,7 +451,8 @@
 
     // Consumer demand — chaos-driven impulse (returns to base between hits)
     const hits           = applyQueuedChaosHits();
-    const consumerDemand = BASE_DEMAND + BASE_DEMAND * (cfg.shockMagnitude - 1) * hits;
+    const baseDemand     = startingGlobal.customerDemand;
+    const consumerDemand = baseDemand + baseDemand * (cfg.shockMagnitude - 1) * hits;
 
     if (hits > 0) {
       simulationState.chaosHitTicks.push(tick);
@@ -421,6 +462,21 @@
     }
     simulationState.consumerDemandHistory.push(consumerDemand);
 
+    /*
+      Daily operations view:
+      Think of each tick as one business day (or week) in a real supply chain. Each node first receives trucks that were already in transit,
+      then processes today's demand from downstream partners. The retailer reacts to customer purchases directly, while distributor,
+      manufacturer, and supplier react to purchase orders sent by the next node down the chain.
+
+      Managers then reconcile what they could ship versus what they could not. Unfilled demand becomes backlog (open orders) that carries
+      into the next period. Replenishment is planned from three practical inputs: recent demand trend, desired safety buffer, and stock
+      already on the way. This mirrors common S&OP behavior where planners avoid double-ordering by subtracting pipeline inventory.
+
+      If stock falls below a risk threshold, teams switch into defensive behavior and order more aggressively (panic mode), similar to how
+      buyers react during shortage signals. After placing the new order upstream, the system records inventory, ordering, and backlog KPIs,
+      and emits event alerts when stress indicators (panic entry, backlog milestones) cross important operational thresholds.
+    */
+   
     // Capture previous outgoing orders (1-tick order propagation delay)
     const prevOutgoing = agents.map(a => a.outgoingOrder);
 
@@ -474,6 +530,7 @@
       agent.historyInventory.push(agent.inventory);
       agent.historyOrders.push(agent.outgoingOrder);
       agent.historyBacklog.push(agent.backlog);
+      agent.historyPanic.push(agent.isPanicking);
 
       // Backlog milestone events (every 20-unit step)
       const milestone = Math.floor(agent.backlog / 20) * 20;
@@ -514,6 +571,14 @@
     drawLineChart(document.getElementById('chart_orders'),    ordData, 'units');
   }
 
+  // ── hexToRgba ─────────────────────────────────────────────────────────────────
+  function hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+  }
+
   // ── drawLineChart ─────────────────────────────────────────────────────────────
   // canvas is inside .chart-scroll-outer which is inside .chart-wrap.
   // For ticks ≤ VISIBLE_TICKS the canvas fills the viewport (stretch mode).
@@ -527,8 +592,8 @@
     const cssH       = Math.max(100, scrollEl.clientHeight);
     const scrollLeft = scrollEl.scrollLeft;
 
-    const PL = 50, PR = 8, PT = 12, PB = 30, LW = 112;
-    const plotViewportW = Math.max(1, viewportW - PL - PR - LW);
+    const PL = 50, PR = 12, PT = 12, PB = 30;
+    const plotViewportW = Math.max(1, viewportW - PL - PR);
     const plotH         = cssH - PT - PB;
 
     const totalTicks = simulationState.tick;
@@ -542,7 +607,7 @@
     } else {
       // Scroll: fixed density — plotViewportW shows exactly VISIBLE_TICKS ticks
       pxPerTick = plotViewportW / VISIBLE_TICKS;
-      cssW      = Math.ceil(PL + totalTicks * pxPerTick + PR + LW);
+      cssW      = Math.ceil(PL + totalTicks * pxPerTick + PR);
     }
 
     // Resize canvas if needed
@@ -669,6 +734,32 @@
       ctx.fill();
     });
 
+    // ── Panic shading — semi-transparent agent-colored regions ───────────────
+    if (panicOverlayState.globalEnabled) {
+      agentState.agents.forEach((agent, idx) => {
+        if (!agentVisibility[idx]) return;
+        const panicHist = agent.historyPanic;
+        if (!panicHist || panicHist.length === 0) return;
+        ctx.fillStyle = hexToRgba(AGENT_COLORS[idx], 0.12);
+        let segStart = null;
+        for (let t = 0; t < panicHist.length; t++) {
+          if (panicHist[t] && segStart === null) {
+            segStart = t;
+          } else if (!panicHist[t] && segStart !== null) {
+            const x1 = toX(segStart) - pxPerTick * 0.5;
+            const x2 = toX(t - 1)   + pxPerTick * 0.5;
+            ctx.fillRect(x1, PT, Math.max(0, x2 - x1), plotH);
+            segStart = null;
+          }
+        }
+        if (segStart !== null) {
+          const x1 = toX(segStart) - pxPerTick * 0.5;
+          const x2 = toX(panicHist.length - 1) + pxPerTick * 0.5;
+          ctx.fillRect(x1, PT, Math.max(0, x2 - x1), plotH);
+        }
+      });
+    }
+
     // ── Series lines ──────────────────────────────────────────────────────────
     seriesData.forEach((series, idx) => {
       if (!agentVisibility[idx]) return;
@@ -715,36 +806,13 @@
       });
     }
 
-    // ── Legend — sticky at right edge of viewport ─────────────────────────────
-    const lx  = yAxisX + plotViewportW + PR;
-    const ly0 = PT + 4;
-    AGENT_NAMES.forEach((name, idx) => {
-      const color   = AGENT_COLORS[idx];
-      const ly      = ly0 + idx * 18;
-      const visible = agentVisibility[idx];
-      ctx.globalAlpha = visible ? 1 : 0.3;
-      if (idx === 2) {
-        ctx.strokeStyle = color;
-        ctx.lineWidth   = 2;
-        ctx.strokeRect(lx, ly - 3, 14, 6);
-      } else {
-        ctx.fillStyle = color;
-        ctx.fillRect(lx, ly - 3, 14, 6);
-      }
-      ctx.fillStyle    = '#4b5563';
-      ctx.font         = '10px Inter, sans-serif';
-      ctx.textAlign    = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(name, lx + 18, ly);
-      ctx.globalAlpha = 1;
-    });
   }
 
   // ── handleChartHover ──────────────────────────────────────────────────────────
   // getBoundingClientRect on the canvas accounts for scroll offset automatically:
   // when scrolled, the canvas's left edge shifts left in viewport space, so
   // e.clientX - rect.left gives the correct canvas-space x including scroll.
-  function handleChartHover(e, canvas) {
+  function handleChartHover(e, canvas, chartKey) {
     const rect         = canvas.getBoundingClientRect();
     const mouseXCanvas = e.clientX - rect.left;
 
@@ -752,8 +820,8 @@
     const viewportW  = Math.max(1, scrollEl.clientWidth);
     const totalTicks = simulationState.tick;
 
-    const PL = 50, PR = 8, LW = 112;
-    const plotViewportW = Math.max(1, viewportW - PL - PR - LW);
+    const PL = 50, PR = 12;
+    const plotViewportW = Math.max(1, viewportW - PL - PR);
 
     let pxPerTick;
     if (totalTicks <= VISIBLE_TICKS) {
@@ -787,38 +855,46 @@
     // Canvas x of the snapped tick — used for tooltip placement in both charts
     const canvasX = PL + hT * pxPerTick;
 
-    _updateChartTooltip('tooltip_inventory', 'inventory', 'scroll_inv', hT, canvasX);
-    _updateChartTooltip('tooltip_orders',    'orders',    'scroll_ord', hT, canvasX);
+    if (chartKey === 'inventory') {
+      _updateChartTooltip('tooltip_inventory', 'scroll_inv', hT, canvasX);
+      document.getElementById('tooltip_orders').classList.add('hidden');
+    } else {
+      _updateChartTooltip('tooltip_orders', 'scroll_ord', hT, canvasX);
+      document.getElementById('tooltip_inventory').classList.add('hidden');
+    }
 
     renderCharts();
   }
 
   // ── _updateChartTooltip ───────────────────────────────────────────────────────
-  function _updateChartTooltip(tooltipId, chartKey, scrollId, hT, canvasX) {
+  function _updateChartTooltip(tooltipId, scrollId, hT, canvasX) {
     const tooltipEl = document.getElementById(tooltipId);
     const scrollEl  = document.getElementById(scrollId);
 
     const demand = simulationState.consumerDemandHistory[hT];
     let html = `<div class="tooltip-head">Week ${hT}</div>`;
     html    += `<div class="tooltip-demand">Consumer demand: ${demand !== undefined ? demand.toFixed(0) : '—'}</div>`;
+    html    += `<div class="tooltip-hint">inv | blg | ord</div>`;
     agentState.agents.forEach((agent, i) => {
       if (!agentVisibility[i]) return;
-      const series = chartKey === 'inventory' ? agent.historyInventory : agent.historyOrders;
-      const val    = series[hT];
-      html += `<div><span style="color:${AGENT_COLORS[i]};font-weight:600">${agent.name}</span>: ${val !== undefined ? val.toFixed(0) : '—'}</div>`;
+      const inv = agent.historyInventory[hT];
+      const blg = agent.historyBacklog[hT];
+      const ord = agent.historyOrders[hT];
+      const fmt = v => (v !== undefined ? Math.round(v) : '—');
+      html += `<div><span style="color:${AGENT_COLORS[i]};font-weight:600">${agent.name}</span>: ${fmt(inv)} | ${fmt(blg)} | ${fmt(ord)}</div>`;
     });
     tooltipEl.innerHTML = html;
     tooltipEl.classList.remove('hidden');
 
-    // Position tooltip: canvasX - scrollLeft = position within the visible wrap
+    // Position tooltip using viewport coordinates (position:fixed bypasses overflow clipping)
+    const rect       = scrollEl ? scrollEl.getBoundingClientRect() : { left: 0, top: 0, right: 600, width: 600 };
     const scrollLeft = scrollEl ? scrollEl.scrollLeft : 0;
-    const wrapW      = scrollEl ? scrollEl.clientWidth : 600;
     const wrapX      = canvasX - scrollLeft;
     let tx = wrapX + 12;
-    if (tx + 160 > wrapW) tx = wrapX - 172;
+    if (tx + 165 > rect.width) tx = wrapX - 177;
     if (tx < 0) tx = 4;
-    tooltipEl.style.left = tx + 'px';
-    tooltipEl.style.top  = '8px';
+    tooltipEl.style.left = (rect.left + tx) + 'px';
+    tooltipEl.style.top  = (rect.top  + 8)  + 'px';
   }
 
   // ── _autoScrollCharts ─────────────────────────────────────────────────────────
@@ -864,11 +940,12 @@
       return;
     }
 
+    const baseDemand    = startingGlobal.customerDemand;
     const maxOrdByAgent = agents.map(a =>
       a.historyOrders.reduce((m, v) => (v > m ? v : m), 0)
     );
     const maxSupplierOrd = maxOrdByAgent[3];
-    const ampRatio       = (maxSupplierOrd / BASE_DEMAND).toFixed(1);
+    const ampRatio       = (maxSupplierOrd / baseDemand).toFixed(1);
 
     const maxBlgByAgent = agents.map(a =>
       a.historyBacklog.reduce((m, v) => (v > m ? v : m), 0)
@@ -882,22 +959,22 @@
     const hitCount    = simulationState.chaosHitTicks.length;
     const lastHitTick = hitCount > 0 ? simulationState.chaosHitTicks[hitCount - 1] : null;
     const peakDemand  = simulationState.consumerDemandHistory.reduce(
-      (m, v) => (v > m ? v : m), BASE_DEMAND
+      (m, v) => (v > m ? v : m), baseDemand
     );
 
     let text = '';
 
     if (hitCount === 0) {
-      text  = `Week ${tick}: the chain is running at steady-state demand of ${BASE_DEMAND} units/week. `;
+      text  = `Week ${tick}: the chain is running at steady-state demand of ${baseDemand} units/week. `;
       text += `No chaos hits applied yet. Press the Chaos button to inject demand spikes and observe upstream amplification. `;
       text += `Each hit multiplies demand by ${cfg.shockMagnitude.toFixed(1)}× for that tick. Multiple hits stack linearly.`;
     } else {
       text  = `${hitCount} chaos hit${hitCount > 1 ? 's' : ''} applied — last at week ${lastHitTick}. `;
-      text += `Consumer demand peaked at ${peakDemand.toFixed(0)} units/week (${(peakDemand / BASE_DEMAND).toFixed(1)}× baseline). `;
+      text += `Consumer demand peaked at ${peakDemand.toFixed(0)} units/week (${(peakDemand / baseDemand).toFixed(1)}× baseline). `;
 
-      if (maxSupplierOrd > BASE_DEMAND * 1.3) {
+      if (maxSupplierOrd > baseDemand * 1.3) {
         text += `Each node amplified its orders upstream to rebuild safety buffers and cover lead-time uncertainty. `;
-        text += `The Supplier's orders peaked at ${maxSupplierOrd.toFixed(0)} units — a ${ampRatio}× amplification of the original ${BASE_DEMAND}-unit baseline. `;
+        text += `The Supplier's orders peaked at ${maxSupplierOrd.toFixed(0)} units — a ${ampRatio}× amplification of the original ${baseDemand}-unit baseline. `;
       } else {
         text += `The chain absorbed the shock with moderate amplification (Supplier peak: ${maxSupplierOrd.toFixed(0)} units, ${ampRatio}× baseline). `;
       }
@@ -1015,6 +1092,8 @@
       if (blg) blg.value = sc.backlog;
       if (ord) ord.value = sc.outgoingOrder;
     });
+    const cdInput = document.getElementById('start_customer_demand');
+    if (cdInput) cdInput.value = startingGlobal.customerDemand;
   }
 
   // ── Boot ─────────────────────────────────────────────────────────────────────

@@ -94,8 +94,8 @@
           </div>
           <div class="agent-stats">
             <div class="stat-row"><span class="stat-lbl">Inventory</span><span class="stat-val" id="inv_0">40</span></div>
-            <div class="stat-row"><span class="stat-lbl">Order Out</span><span class="stat-val" id="ord_0">10</span></div>
             <div class="stat-row"><span class="stat-lbl">Backlog</span><span class="stat-val" id="blg_0">0</span></div>
+            <div class="stat-row"><span class="stat-lbl">Order Out</span><span class="stat-val" id="ord_0">10</span></div>
           </div>
         </div>
 
@@ -107,8 +107,8 @@
           </div>
           <div class="agent-stats">
             <div class="stat-row"><span class="stat-lbl">Inventory</span><span class="stat-val" id="inv_1">40</span></div>
-            <div class="stat-row"><span class="stat-lbl">Order Out</span><span class="stat-val" id="ord_1">10</span></div>
             <div class="stat-row"><span class="stat-lbl">Backlog</span><span class="stat-val" id="blg_1">0</span></div>
+            <div class="stat-row"><span class="stat-lbl">Order Out</span><span class="stat-val" id="ord_1">10</span></div>
           </div>
         </div>
 
@@ -120,8 +120,8 @@
           </div>
           <div class="agent-stats">
             <div class="stat-row"><span class="stat-lbl">Inventory</span><span class="stat-val" id="inv_2">40</span></div>
-            <div class="stat-row"><span class="stat-lbl">Order Out</span><span class="stat-val" id="ord_2">10</span></div>
             <div class="stat-row"><span class="stat-lbl">Backlog</span><span class="stat-val" id="blg_2">0</span></div>
+            <div class="stat-row"><span class="stat-lbl">Order Out</span><span class="stat-val" id="ord_2">10</span></div>
           </div>
         </div>
 
@@ -133,8 +133,8 @@
           </div>
           <div class="agent-stats">
             <div class="stat-row"><span class="stat-lbl">Inventory</span><span class="stat-val" id="inv_3">40</span></div>
-            <div class="stat-row"><span class="stat-lbl">Order Out</span><span class="stat-val" id="ord_3">10</span></div>
             <div class="stat-row"><span class="stat-lbl">Backlog</span><span class="stat-val" id="blg_3">0</span></div>
+            <div class="stat-row"><span class="stat-lbl">Order Out</span><span class="stat-val" id="ord_3">10</span></div>
           </div>
         </div>
 
@@ -142,18 +142,27 @@
 
       <div class="charts-col">
 
-        <!-- Agent visibility toggles — controls both charts simultaneously -->
-        <div class="agent-toggles">
-          <button class="agent-toggle-chip" id="toggle_agent_0" data-agent="0" data-active="true">
+        <!-- Chart controls: single shared legend + panic overlay toggle -->
+        <div class="chart-controls" role="toolbar" aria-label="Chart controls">
+          <label class="chart-ctrl-panic-label" for="panic_overlay_global">
+            <input type="checkbox" id="panic_overlay_global" checked>
+            Show Panic Overlay
+          </label>
+          <span class="chart-ctrl-sep" aria-hidden="true"></span>
+          <button class="agent-toggle-chip" id="toggle_agent_0" data-agent="0" data-active="true"
+                  tabindex="0" aria-pressed="true" aria-label="Toggle Retailer">
             <span class="toggle-dot" style="background:#FF2D7B"></span>Retailer
           </button>
-          <button class="agent-toggle-chip" id="toggle_agent_1" data-agent="1" data-active="true">
+          <button class="agent-toggle-chip" id="toggle_agent_1" data-agent="1" data-active="true"
+                  tabindex="0" aria-pressed="true" aria-label="Toggle Distributor">
             <span class="toggle-dot" style="background:#00D4FF"></span>Distributor
           </button>
-          <button class="agent-toggle-chip" id="toggle_agent_2" data-agent="2" data-active="true">
+          <button class="agent-toggle-chip" id="toggle_agent_2" data-agent="2" data-active="true"
+                  tabindex="0" aria-pressed="true" aria-label="Toggle Manufacturer">
             <span class="toggle-dot mfg-toggle-dot"></span>Manufacturer
           </button>
-          <button class="agent-toggle-chip" id="toggle_agent_3" data-agent="3" data-active="true">
+          <button class="agent-toggle-chip" id="toggle_agent_3" data-agent="3" data-active="true"
+                  tabindex="0" aria-pressed="true" aria-label="Toggle Supplier">
             <span class="toggle-dot" style="background:#7C3AED"></span>Supplier
           </button>
         </div>
@@ -227,6 +236,10 @@
             <input class="starts-input" id="start_inv_3" type="number" min="0" max="500" value="40">
             <input class="starts-input" id="start_blg_3" type="number" min="0" max="500" value="0">
             <input class="starts-input" id="start_ord_3" type="number" min="0" max="500" value="10">
+          </div>
+          <div class="starts-demand-row">
+            <span class="starts-demand-lbl">Cust. Demand</span>
+            <input class="starts-input" id="start_customer_demand" type="number" min="0" max="500" value="10">
           </div>
           <button class="btn btn-secondary starts-apply-btn" id="btn_apply_starts">Apply Start Conditions</button>
         </div>
