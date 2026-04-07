@@ -1,0 +1,706 @@
+/* ── Reset ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Base (desktop: no page scroll) ───────────────────────────────────── */
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #fafafa;
+  color: #111111;
+  line-height: 1.4;
+}
+
+/* ── App grid ─────────────────────────────────────────────────────────── */
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr 210px;
+  gap: 6px;
+  height: 100vh;
+  padding: 6px;
+}
+
+
+/* ── TOP BAR ─────────────────────────────────────────────────────────────
+   position: relative + z-index: 2 establishes a stacking context that sits
+   above .main-body and .bottom-row (which have no explicit z-index).
+   overflow: visible is required so .param-help tooltips can extend below
+   the topbar boundary without being clipped.
+──────────────────────────────────────────────────────────────────────── */
+.topbar {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  overflow: visible;
+  position: relative;
+  z-index: 2;
+}
+
+/* Identity */
+.topbar-identity {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 108px;
+  max-width: 130px;
+  padding-right: 14px;
+  border-right: 1px solid #f0f0f0;
+  margin-right: 14px;
+}
+.title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #111111;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.6875rem;
+  color: #4b5563;
+  margin-top: 5px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dot-sep { color: #d1d5db; }
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d1d5db;
+  flex-shrink: 0;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.status-dot.running {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16,185,129,0.18);
+}
+.status-dot.paused { background: #f59e0b; }
+.status-dot.idle   { background: #d1d5db; }
+
+/* Controls */
+.topbar-controls {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding-right: 14px;
+  border-right: 1px solid #f0f0f0;
+  margin-right: 14px;
+}
+.btn-group {
+  display: flex;
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+.speed-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.speed-wrap .slider {
+  width: 110px;
+  flex-shrink: 0;
+}
+
+/* Params area — 4 columns after removing Shock Week */
+.topbar-params {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0 8px;
+  align-items: center;
+}
+.param-item {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0;
+}
+.param-header {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.param-short-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+  cursor: default;
+}
+.param-val-display {
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: #6b7280;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Help pin ─────────────────────────────────────────────────────────────
+   position: relative is required so .param-help (absolute) is anchored
+   to this element and not an arbitrary ancestor.
+──────────────────────────────────────────────────────────────────────── */
+.help-pin {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid #d1d5db;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  color: #9ca3af;
+  cursor: help;
+  flex-shrink: 0;
+  user-select: none;
+  line-height: 1;
+}
+
+/* ── Param-help tooltip ───────────────────────────────────────────────────
+   z-index: 1 works here because .topbar itself has z-index: 2, making the
+   entire topbar stacking context render above .main-body (z-index: auto).
+──────────────────────────────────────────────────────────────────────── */
+.param-help {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 210px;
+  background: #1f2937;
+  color: #f3f4f6;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  line-height: 1.55;
+  padding: 8px 10px;
+  border-radius: 7px;
+  white-space: normal;
+  z-index: 1;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+}
+.help-pin:hover .param-help,
+.help-pin:focus .param-help {
+  display: block;
+}
+.topbar-params .param-item:last-child .param-help {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+
+/* ── Buttons ─────────────────────────────────────────────────────────────*/
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 13px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s, transform 0.1s;
+  user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn:active:not(:disabled) { transform: scale(0.96); }
+.btn:disabled { opacity: 0.42; cursor: not-allowed; transform: none; }
+.btn-run      { background: #FF2D7B; color: #ffffff; }
+.btn-run:hover:not(:disabled) { opacity: 0.86; }
+.btn-secondary { background: #f3f4f6; color: #111111; border: 1px solid #e5e7eb; }
+.btn-secondary:hover:not(:disabled) { background: #e5e7eb; }
+.btn-reset    { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
+.btn-reset:hover:not(:disabled) { background: #ffe4e6; }
+.btn-chaos    { background: #7C3AED; color: #ffffff; }
+.btn-chaos:hover:not(:disabled) { opacity: 0.86; }
+
+
+/* ── Sliders ──────────────────────────────────────────────────────────────*/
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 44px;
+  background: transparent;
+  cursor: pointer;
+  padding: 17px 0;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 3px;
+  background: #e5e7eb;
+  border-radius: 2px;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #FF2D7B;
+  margin-top: -5.5px;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1.5px #FF2D7B;
+  transition: transform 0.1s;
+}
+.slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.slider::-moz-range-track { height: 3px; background: #e5e7eb; border-radius: 2px; }
+.slider::-moz-range-thumb {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #FF2D7B;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1.5px #FF2D7B;
+  cursor: pointer;
+}
+
+
+/* ── Card base ───────────────────────────────────────────────────────────*/
+.card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}
+.section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #111111;
+  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+
+/* ── MAIN BODY ───────────────────────────────────────────────────────────*/
+.main-body {
+  display: flex;
+  gap: 6px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 0;
+  overflow: hidden;
+}
+.agent-card {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+}
+.agent-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+  flex-shrink: 0;
+}
+.agent-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.mfg-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #A8FF00;
+  border: 1.5px solid #9ca3af;
+  flex-shrink: 0;
+}
+.agent-name  { font-size: 0.75rem; font-weight: 700; color: #111111; }
+.panic-badge {
+  margin-left: auto;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.agent-stats { display: flex; flex-direction: column; gap: 3px; flex: 1; justify-content: center; }
+.stat-row    { display: flex; justify-content: space-between; align-items: baseline; }
+.stat-lbl    { font-size: 0.6875rem; color: #9ca3af; }
+.stat-val    {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #111111;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.8ch;
+  text-align: right;
+}
+
+/* Charts column */
+.charts-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Agent visibility toggles ────────────────────────────────────────────*/
+.agent-toggles {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.agent-toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #374151;
+  background: #f9fafb;
+  border: 1.5px solid #e5e7eb;
+  cursor: pointer;
+  transition: opacity 0.12s, border-color 0.12s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
+}
+.agent-toggle-chip[data-active="true"]  { opacity: 1;    border-color: #d1d5db; }
+.agent-toggle-chip[data-active="false"] { opacity: 0.38; border-color: #e5e7eb; }
+.agent-toggle-chip:hover { border-color: #9ca3af; }
+.agent-toggle-chip:active { transform: scale(0.96); }
+.toggle-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.mfg-toggle-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #A8FF00;
+  border: 1.5px solid #9ca3af;
+  flex-shrink: 0;
+}
+
+.chart-card {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.chart-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Scrollable chart container ──────────────────────────────────────────*/
+.chart-scroll-outer {
+  position: absolute;
+  inset: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.chart-scroll-outer::-webkit-scrollbar {
+  height: 4px;
+}
+.chart-scroll-outer::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chart-scroll-outer::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 2px;
+}
+.chart-scroll-outer::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+canvas { display: block; }
+
+.chart-tooltip {
+  position: absolute;
+  top: 8px;
+  z-index: 20;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 0.6875rem;
+  line-height: 1.6;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  min-width: 130px;
+  font-variant-numeric: tabular-nums;
+}
+.tooltip-head   { font-weight: 700; color: #111111; margin-bottom: 1px; }
+.tooltip-demand { color: #9ca3af; font-size: 0.65rem; margin-bottom: 2px; }
+
+
+/* ── BOTTOM ROW ──────────────────────────────────────────────────────────*/
+.bottom-row {
+  display: flex;
+  gap: 6px;
+  min-height: 0;
+  overflow: hidden;
+}
+.bottom-card {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Event list */
+.event-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.event-list::-webkit-scrollbar { width: 4px; }
+.event-list::-webkit-scrollbar-track { background: transparent; }
+.event-list::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 2px; }
+.empty-state { font-size: 0.75rem; color: #9ca3af; }
+.event-item {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 0.6875rem;
+  padding: 4px 7px;
+  border-radius: 5px;
+  background: #f9fafb;
+  border-left: 3px solid #e5e7eb;
+  flex-shrink: 0;
+}
+.event-shock  { border-left-color: #FF2D7B; }
+.event-chaos  { border-left-color: #7C3AED; }
+.event-panic  { border-left-color: #f59e0b; }
+.event-backlog{ border-left-color: #ef4444; }
+.event-param  { border-left-color: #6b7280; }
+.event-info   { border-left-color: #10b981; }
+.event-tick   {
+  font-weight: 700;
+  color: #9ca3af;
+  font-size: 0.65rem;
+  min-width: 30px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.event-msg    { color: #374151; }
+
+/* Insights */
+.insight-text {
+  font-size: 0.8125rem;
+  color: #374151;
+  line-height: 1.65;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.insight-text::-webkit-scrollbar { width: 4px; }
+.insight-text::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 2px; }
+
+/* ── Starting Conditions panel ───────────────────────────────────────────*/
+.starts-card {
+  flex: 0 0 auto;
+  width: 268px;
+}
+.starts-note {
+  font-weight: 400;
+  color: #9ca3af;
+  font-size: 0.625rem;
+  letter-spacing: 0;
+}
+.starts-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-height: 0;
+}
+.starts-row {
+  display: grid;
+  grid-template-columns: 76px 1fr 1fr 1fr;
+  gap: 3px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.starts-header {
+  margin-bottom: 1px;
+}
+.starts-col-lbl {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  color: #9ca3af;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.starts-agent-lbl {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #374151;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.starts-input {
+  width: 100%;
+  height: 26px;
+  border: 1px solid #e5e7eb;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  text-align: center;
+  color: #111111;
+  background: #f9fafb;
+  padding: 0 2px;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+.starts-input::-webkit-inner-spin-button,
+.starts-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.starts-input:focus {
+  outline: none;
+  border-color: #7C3AED;
+  background: #ffffff;
+}
+.starts-apply-btn {
+  margin-top: 4px;
+  height: 30px;
+  font-size: 0.6875rem;
+  width: 100%;
+  flex-shrink: 0;
+  border-radius: 6px;
+}
+
+
+/* ── Utility ─────────────────────────────────────────────────────────────*/
+.hidden { display: none !important; }
+
+
+/* ── Responsive: ≤ 960px — collapse to scrollable single column ──────── */
+@media (max-width: 960px) {
+  html, body {
+    height: auto;
+    overflow: auto;
+  }
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    padding: 10px 8px 48px;
+    gap: 10px;
+  }
+  .topbar {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+  .topbar-identity  { border-right: none; margin-right: 0; padding-right: 0; max-width: none; flex-direction: row; align-items: center; gap: 12px; }
+  .topbar-controls  { border-right: none; margin-right: 0; padding-right: 0; flex-direction: column; width: 100%; }
+  .btn-group        { flex-wrap: wrap; }
+  .speed-wrap       { width: 100%; }
+  .speed-wrap .slider { flex: 1; width: auto; }
+  .topbar-params    { grid-template-columns: repeat(2, 1fr); width: 100%; }
+
+  .main-body {
+    flex-direction: column;
+    overflow: visible;
+    height: auto;
+  }
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    height: auto;
+    overflow: visible;
+  }
+  .agent-card { flex: 1; min-width: 140px; min-height: 90px; }
+
+  .charts-col {
+    height: auto;
+    overflow: visible;
+    gap: 10px;
+  }
+  .chart-card {
+    height: auto;
+    overflow: visible;
+  }
+  .chart-wrap {
+    height: 220px;
+    overflow: hidden;
+  }
+
+  .bottom-row {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+    gap: 10px;
+  }
+  .bottom-card {
+    height: 180px;
+    overflow: hidden;
+  }
+  .starts-card {
+    width: 100%;
+    height: auto;
+    min-height: 200px;
+  }
+}
+
+@media (max-width: 500px) {
+  .topbar-params { grid-template-columns: 1fr 1fr; }
+  .agent-card    { min-width: 120px; }
+}

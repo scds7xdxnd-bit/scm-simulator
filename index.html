@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bullwhip Effect Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+
+    <!-- ── TOP BAR ─────────────────────────────────────────────────── -->
+    <header class="topbar">
+
+      <div class="topbar-identity">
+        <h1 class="title">Bullwhip<br>Simulator</h1>
+        <div class="status-badge">
+          <span id="status_dot" class="status-dot"></span>
+          <span id="status_label">Idle</span>
+          <span class="dot-sep">·</span>
+          <span id="tick_counter">Week 0</span>
+        </div>
+      </div>
+
+      <div class="topbar-controls">
+        <div class="btn-group">
+          <button class="btn btn-run"       id="btn_play_pause">Play</button>
+          <button class="btn btn-secondary" id="btn_step">Step</button>
+          <button class="btn btn-reset"     id="btn_reset" disabled>Reset</button>
+          <button class="btn btn-chaos"     id="btn_chaos_hit">Chaos</button>
+        </div>
+        <div class="speed-wrap">
+          <label class="param-short-label" for="speed_slider">Speed</label>
+          <span class="param-val-display" id="speed_val">4 tps</span>
+          <input class="slider" type="range" id="speed_slider" min="1" max="20" step="1" value="4">
+        </div>
+      </div>
+
+      <div class="topbar-params">
+
+        <div class="param-item">
+          <div class="param-header">
+            <label class="param-short-label" for="shock_magnitude">Chaos Mag</label>
+            <span class="param-val-display" id="shock_magnitude_val">2.0×</span>
+            <span class="help-pin" tabindex="0">?<span class="param-help" id="help_shockMagnitude"></span></span>
+          </div>
+          <input class="slider" type="range" id="shock_magnitude" min="1.0" max="4.0" step="0.1" value="2.0">
+        </div>
+
+        <div class="param-item">
+          <div class="param-header">
+            <label class="param-short-label" for="panic_threshold">Panic Thr</label>
+            <span class="param-val-display" id="panic_threshold_val">20</span>
+            <span class="help-pin" tabindex="0">?<span class="param-help" id="help_panicThreshold"></span></span>
+          </div>
+          <input class="slider" type="range" id="panic_threshold" min="0" max="40" step="1" value="20">
+        </div>
+
+        <div class="param-item">
+          <div class="param-header">
+            <label class="param-short-label" for="panic_multiplier">Panic Mul</label>
+            <span class="param-val-display" id="panic_multiplier_val">2.0×</span>
+            <span class="help-pin" tabindex="0">?<span class="param-help" id="help_panicMultiplier"></span></span>
+          </div>
+          <input class="slider" type="range" id="panic_multiplier" min="1.0" max="4.0" step="0.1" value="2.0">
+        </div>
+
+        <div class="param-item">
+          <div class="param-header">
+            <label class="param-short-label" for="safety_stock">Safety Stk</label>
+            <span class="param-val-display" id="safety_stock_val">10</span>
+            <span class="help-pin" tabindex="0">?<span class="param-help" id="help_safetyStock"></span></span>
+          </div>
+          <input class="slider" type="range" id="safety_stock" min="0" max="40" step="1" value="10">
+        </div>
+
+      </div>
+    </header>
+
+
+    <!-- ── MAIN BODY ───────────────────────────────────────────────── -->
+    <div class="main-body">
+
+      <aside class="sidebar">
+
+        <div class="card agent-card">
+          <div class="agent-header">
+            <span class="agent-dot" style="background:#FF2D7B"></span>
+            <span class="agent-name">Retailer</span>
+            <span class="panic-badge hidden" id="panic_0">PANIC</span>
+          </div>
+          <div class="agent-stats">
+            <div class="stat-row"><span class="stat-lbl">Inventory</span><span class="stat-val" id="inv_0">40</span></div>
+            <div class="stat-row"><span class="stat-lbl">Order Out</span><span class="stat-val" id="ord_0">10</span></div>
+            <div class="stat-row"><span class="stat-lbl">Backlog</span><span class="stat-val" id="blg_0">0</span></div>
+          </div>
+        </div>
+
+        <div class="card agent-card">
+          <div class="agent-header">
+            <span class="agent-dot" style="background:#00D4FF"></span>
+            <span class="agent-name">Distributor</span>
+            <span class="panic-badge hidden" id="panic_1">PANIC</span>
+          </div>
+          <div class="agent-stats">
+            <div class="stat-row"><span class="stat-lbl">Inventory</span><span class="stat-val" id="inv_1">40</span></div>
+            <div class="stat-row"><span class="stat-lbl">Order Out</span><span class="stat-val" id="ord_1">10</span></div>
+            <div class="stat-row"><span class="stat-lbl">Backlog</span><span class="stat-val" id="blg_1">0</span></div>
+          </div>
+        </div>
+
+        <div class="card agent-card">
+          <div class="agent-header">
+            <span class="agent-dot mfg-dot"></span>
+            <span class="agent-name">Manufacturer</span>
+            <span class="panic-badge hidden" id="panic_2">PANIC</span>
+          </div>
+          <div class="agent-stats">
+            <div class="stat-row"><span class="stat-lbl">Inventory</span><span class="stat-val" id="inv_2">40</span></div>
+            <div class="stat-row"><span class="stat-lbl">Order Out</span><span class="stat-val" id="ord_2">10</span></div>
+            <div class="stat-row"><span class="stat-lbl">Backlog</span><span class="stat-val" id="blg_2">0</span></div>
+          </div>
+        </div>
+
+        <div class="card agent-card">
+          <div class="agent-header">
+            <span class="agent-dot" style="background:#7C3AED"></span>
+            <span class="agent-name">Supplier</span>
+            <span class="panic-badge hidden" id="panic_3">PANIC</span>
+          </div>
+          <div class="agent-stats">
+            <div class="stat-row"><span class="stat-lbl">Inventory</span><span class="stat-val" id="inv_3">40</span></div>
+            <div class="stat-row"><span class="stat-lbl">Order Out</span><span class="stat-val" id="ord_3">10</span></div>
+            <div class="stat-row"><span class="stat-lbl">Backlog</span><span class="stat-val" id="blg_3">0</span></div>
+          </div>
+        </div>
+
+      </aside>
+
+      <div class="charts-col">
+
+        <!-- Agent visibility toggles — controls both charts simultaneously -->
+        <div class="agent-toggles">
+          <button class="agent-toggle-chip" id="toggle_agent_0" data-agent="0" data-active="true">
+            <span class="toggle-dot" style="background:#FF2D7B"></span>Retailer
+          </button>
+          <button class="agent-toggle-chip" id="toggle_agent_1" data-agent="1" data-active="true">
+            <span class="toggle-dot" style="background:#00D4FF"></span>Distributor
+          </button>
+          <button class="agent-toggle-chip" id="toggle_agent_2" data-agent="2" data-active="true">
+            <span class="toggle-dot mfg-toggle-dot"></span>Manufacturer
+          </button>
+          <button class="agent-toggle-chip" id="toggle_agent_3" data-agent="3" data-active="true">
+            <span class="toggle-dot" style="background:#7C3AED"></span>Supplier
+          </button>
+        </div>
+
+        <section class="card chart-card">
+          <h2 class="section-title">Inventory Levels Over Time</h2>
+          <div class="chart-wrap">
+            <div class="chart-scroll-outer" id="scroll_inv">
+              <canvas id="chart_inventory"></canvas>
+            </div>
+            <div id="tooltip_inventory" class="chart-tooltip hidden"></div>
+          </div>
+        </section>
+
+        <section class="card chart-card">
+          <h2 class="section-title">Order Quantities Over Time</h2>
+          <div class="chart-wrap">
+            <div class="chart-scroll-outer" id="scroll_ord">
+              <canvas id="chart_orders"></canvas>
+            </div>
+            <div id="tooltip_orders" class="chart-tooltip hidden"></div>
+          </div>
+        </section>
+
+      </div>
+
+    </div>
+
+
+    <!-- ── BOTTOM ROW ──────────────────────────────────────────────── -->
+    <div class="bottom-row">
+      <section class="card bottom-card">
+        <h2 class="section-title">Event Timeline</h2>
+        <div id="event_timeline" class="event-list">
+          <p class="empty-state">Events will appear as the simulation runs.</p>
+        </div>
+      </section>
+      <section class="card bottom-card">
+        <h2 class="section-title">Simulation Insights</h2>
+        <p id="insight_text" class="insight-text">Press Play or Step to begin. Use the Chaos button to inject demand spikes at any time. Configure per-agent starting conditions and click Reset to apply them.</p>
+      </section>
+      <section class="card bottom-card starts-card">
+        <h2 class="section-title">Starting Conditions <span class="starts-note">· on Reset</span></h2>
+        <div class="starts-body">
+          <div class="starts-row starts-header">
+            <span></span>
+            <span class="starts-col-lbl">Inventory</span>
+            <span class="starts-col-lbl">Backlog</span>
+            <span class="starts-col-lbl">Order Out</span>
+          </div>
+          <div class="starts-row">
+            <div class="starts-agent-lbl"><span class="agent-dot" style="background:#FF2D7B"></span>Retailer</div>
+            <input class="starts-input" id="start_inv_0" type="number" min="0" max="500" value="40">
+            <input class="starts-input" id="start_blg_0" type="number" min="0" max="500" value="0">
+            <input class="starts-input" id="start_ord_0" type="number" min="0" max="500" value="10">
+          </div>
+          <div class="starts-row">
+            <div class="starts-agent-lbl"><span class="agent-dot" style="background:#00D4FF"></span>Distributor</div>
+            <input class="starts-input" id="start_inv_1" type="number" min="0" max="500" value="40">
+            <input class="starts-input" id="start_blg_1" type="number" min="0" max="500" value="0">
+            <input class="starts-input" id="start_ord_1" type="number" min="0" max="500" value="10">
+          </div>
+          <div class="starts-row">
+            <div class="starts-agent-lbl"><span class="mfg-dot"></span>Manufacturer</div>
+            <input class="starts-input" id="start_inv_2" type="number" min="0" max="500" value="40">
+            <input class="starts-input" id="start_blg_2" type="number" min="0" max="500" value="0">
+            <input class="starts-input" id="start_ord_2" type="number" min="0" max="500" value="10">
+          </div>
+          <div class="starts-row">
+            <div class="starts-agent-lbl"><span class="agent-dot" style="background:#7C3AED"></span>Supplier</div>
+            <input class="starts-input" id="start_inv_3" type="number" min="0" max="500" value="40">
+            <input class="starts-input" id="start_blg_3" type="number" min="0" max="500" value="0">
+            <input class="starts-input" id="start_ord_3" type="number" min="0" max="500" value="10">
+          </div>
+          <button class="btn btn-secondary starts-apply-btn" id="btn_apply_starts">Apply Start Conditions</button>
+        </div>
+      </section>
+    </div>
+
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
